@@ -14,7 +14,7 @@ Installation
 Ensure you have Python 3.7+ installed on your system
 Clone this repository:
 
-bashCopygit clone https://github.com/yourusername/seattle-noir.git
+bashCopygit clone https://github.com/red4golf/seattle-noir.git
 cd seattle-noir
 
 Create a virtual environment (optional but recommended):
