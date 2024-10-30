@@ -91,9 +91,9 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 ## Credits
 
-- Game Design & Development: [Your Name]
-- Historical Research: [Your Name]
-- Testing: [Your Name]
+- Game Design & Development: Charles Einarson.
+- Historical Research: Charles Einarson.
+- Testing: Charles Einarson.
 
 ## Project Status
 
