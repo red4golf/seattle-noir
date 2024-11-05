@@ -100,22 +100,46 @@ class SeattleNoir:
     def show_intro(self) -> None:
         """Display the game's introduction sequence."""
         clear_screen()
-        show_title_screen()  # Added title screen before intro text
+        show_title_screen()  
+    
+        # Check for existing saves
+        saves = self.save_load_manager.list_saves()
+        if saves:
+            print("\nFound existing saves:")
+            for save in saves:
+                print(f"- {save['name']} ({save['date']})")
+                print(f"  Location: {save['location']}")
+        
+            while True:
+                choice = input("\nWould you like to load a save? (enter save name or 'new' for new game): ").strip().lower()
+                if choice == 'new':
+                    break
+                elif choice in [save['name'] for save in saves]:
+                    if self.save_load_manager.load_game(self, choice):
+                        print(f"\nLoaded save: {choice}")
+                        print("\n" + self.location_manager.get_location_description())
+                        return  # Skip intro text if loading a save
+                    else:
+                        print("\nFailed to load save.")
+                else:
+                    print("\nInvalid save name. Enter a save name from the list or 'new' for new game.")
+    
+        # Show intro text for new game
         intro_text = """
         The rain beats steadily against your office window at the Seattle Police Department. 
         You're Detective Johnny Diamond, and a new case just landed on your desk.
-        
+    
         World War II may be over, but Seattle is still adjusting to peacetime. The shipyards 
         that once built warships now handle civilian cargo, and the city is growing faster 
         than ever. But something's not right down at the waterfront.
-        
+    
         A valuable medical shipment has disappeared, and rumors suggest it's connected to 
         something bigger. Your investigation will take you through Seattle's historic streets,
         from Pike Place Market to Pioneer Square's underground tunnels.
-        
+    
         Your job: Navigate the streets of 1947 Seattle, gather clues, and solve the mystery.
         But remember, in this city of rain and secrets, not everyone tells the truth...
-        
+    
         Type 'help' at any time to see available commands.
         """
         print_slowly(intro_text)
