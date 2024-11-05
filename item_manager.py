@@ -34,6 +34,22 @@ class ItemManager:
                 'result': 'evidence_connection',
                 'description': "Cross-referencing the evidence log with the shipping manifest reveals a pattern of missing medical supplies.",
                 'removes_items': False
+            },
+            # Add newspaper combinations
+            frozenset(['newspaper_piece_1', 'newspaper_piece_2']): {
+                'result': 'partial_story_1',
+                'description': "The pieces fit together, revealing more about the suspicious activities at the docks and early investigation efforts.",
+                'removes_items': False
+            },
+            frozenset(['newspaper_piece_2', 'newspaper_piece_3']): {
+                'result': 'partial_story_2',
+                'description': "These pieces connect the timeline of events from the initial reports to the port authority's involvement.",
+                'removes_items': False
+            },
+            frozenset(['newspaper_piece_3', 'newspaper_piece_4']): {
+                'result': 'partial_story_3',
+                'description': "The combined pieces shed light on connections between Seattle's port and other West Coast cities.",
+                'removes_items': False
             }
         }
         
@@ -70,6 +86,24 @@ class ItemManager:
                 "use_locations": ["police_station", "evidence_room"],
                 "use_effects": {"evidence_room": "You carefully file the newspaper piece as evidence."}
             },
+            "newspaper_piece_2": {
+                "basic": "A torn newspaper piece about port authority investigations.",
+                "detailed": "Another piece of the Seattle Post-Intelligencer. This section details the port authority's initial investigation and mentions several missing shipments.",
+                "use_locations": ["police_station", "evidence_room"],
+                "use_effects": {"evidence_room": "You carefully file the newspaper piece as evidence."}
+            },
+            "newspaper_piece_3": {
+                "basic": "A newspaper fragment discussing harbor patrol findings.",
+                "detailed": "This piece of the article focuses on harbor patrol reports and their unsuccessful attempts to catch perpetrators in the act.",
+                "use_locations": ["police_station", "evidence_room"],
+                "use_effects": {"evidence_room": "You carefully file the newspaper piece as evidence."}
+            },
+            "newspaper_piece_4": {
+                "basic": "A newspaper section about West Coast connections.",
+                "detailed": "This piece mentions similar incidents in other West Coast ports, suggesting a larger operation.",
+                "use_locations": ["police_station", "evidence_room"],
+                "use_effects": {"evidence_room": "You carefully file the newspaper piece as evidence."}
+            },
             "old_key": {
                 "basic": "A rusty key found in the underground tunnels.",
                 "detailed": "An old brass key, its surface darkened with age. The worn teeth and distinctive craft suggest it dates back to the early 1900s. The head bears a faint marking: 'W.D.' - Warehouse District?",
@@ -98,6 +132,8 @@ class ItemManager:
                 }
             }
         }
+
+    
 
     def take_item(self, item: str, location_items: List[str], game_state: Dict) -> bool:
         """Pick up an item from the current location."""

@@ -19,3 +19,6 @@
 2024-11-04 16:09:08,640 - INFO - Game session ended normally
 2024-11-04 16:11:50,648 - INFO - Game session ended normally
 2024-11-04 16:24:19,481 - INFO - Game session ended normally
+2024-11-04 19:05:26,378 - ERROR - Critical error: 'SeattleNoir' object has no attribute 'play'
+2024-11-04 19:38:05,917 - INFO - Game session ended normally
+2024-11-04 20:29:32,645 - INFO - Game session ended normally

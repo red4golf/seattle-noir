@@ -5,6 +5,49 @@ from puzzle_solver import PuzzleSolver
 from item_manager import ItemManager
 from utils import clear_screen, print_slowly
 
+def show_title_screen():
+    """Display the game's title screen with complete title and cityscape."""
+    title_art = r"""
+════════════════════════════════════════════════════════════════════════════════════════
+
+███████╗███████╗ █████╗ ████████╗████████╗██╗     ███████╗
+██╔════╝██╔════╝██╔══██╗╚══██╔══╝╚══██╔══╝██║     ██╔════╝
+███████║█████╗  ███████║   ██║      ██║   ██║     █████╗  
+╚════██║██╔══╝  ██╔══██║   ██║      ██║   ██║     ██╔══╝  
+███████║███████╗██║  ██║   ██║      ██║   ███████╗███████╗
+╚══════╝╚══════╝╚═╝  ╚═╝   ╚═╝      ╚═╝   ╚══════╝╚══════╝
+
+███╗   ██╗ ██████╗ ██╗██████╗ 
+████╗  ██║██╔═══██╗██║██╔══██╗        A Detective Mystery
+██╔██╗ ██║██║   ██║██║██████╔╝             Set in
+██║╚██╗██║██║   ██║██║██╔══██╗         1947 Pacific
+██║ ╚████║╚██████╔╝██║██║  ██║           Northwest
+╚═╝  ╚═══╝ ╚═════╝ ╚═╝╚═╝  ╚═╝
+
+                                      /-\
+                                     /   \      Smith           
+                                    /     \     Tower          /-\
+                           /-\     |   |   |                  |   |
+                          /   \    |   |   |                  |   |
+                         /     \   |   |   |    Olympic       |   |     Medical
+                     /--/   |   \  |   |   |    Hotel      /-|   |     Building
+                    /   |   |    \ |   |   |              | ||   |        
+                   /    |   |     \|   |   |           /--|-||   |-\
+                  /|----|   |      |   |   |          |   | ||   | |    
+                 //     |   |      |   |   |          |   | ||   | |
+                //      |   |      |   |   |          |   | ||   | |    
+               //       |   |      |   |   |          |   | ||   | |
+        ______//________|___|______|___|___|__________|___| ||___| |_____________
+        ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+                        Elliott Bay Waterfront
+
+            "In a city of rain and secrets, not everyone tells the truth..."
+
+════════════════════════════════════════════════════════════════════════════════════════
+"""
+    print(title_art)
+    input("                    Press Enter to begin your investigation...")
+
 class SeattleNoir:
     """Main game manager class that orchestrates the Seattle Noir detective game."""
     
@@ -53,12 +96,8 @@ class SeattleNoir:
     def show_intro(self) -> None:
         """Display the game's introduction sequence."""
         clear_screen()
+        show_title_screen()  # Added title screen before intro text
         intro_text = """
-        Seattle Noir: The Case of the Missing Shipment
-        ============================================
-        
-        Year: 1947
-        
         The rain beats steadily against your office window at the Seattle Police Department. 
         You're Detective Johnny Diamond, and a new case just landed on your desk.
         
@@ -77,6 +116,8 @@ class SeattleNoir:
         """
         print_slowly(intro_text)
         input("\nPress Enter to begin your investigation...")
+
+
 
     def show_help(self) -> None:
         """Display available commands to the player."""

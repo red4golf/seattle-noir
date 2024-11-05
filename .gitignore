@@ -1,1 +1,38 @@
 archive/
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Virtual environments
+venv/
+env/
+ENV/
+.env
+
+# IDE settings
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Project-specific
+*.log
+seattlenoir.log
+savegame.json
+*.save
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Test cache
+.pytest_cache/
+.coverage
+htmlcov/
