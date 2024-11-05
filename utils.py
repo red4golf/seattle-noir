@@ -3,11 +3,105 @@ import sys
 import time
 import logging
 import json
+import os
+import textwrap
+import shutil
+import os
+import textwrap
+import shutil
+from typing import Optional
 from typing import Tuple, Optional, Dict, Any, List
 from functools import wraps
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
+
+def get_terminal_size() -> tuple[int, int]:
+    """Get the current terminal size with fallback values."""
+    try:
+        width, height = shutil.get_terminal_size()
+        width = max(40, min(width, 120))
+        return width, height
+    except Exception:
+        return 80, 24
+
+def wrap_text(text: str, width: Optional[int] = None, indent: int = 0) -> str:
+    """
+    Wrap text to fit the terminal width with proper indentation and formatting.
+    
+    Args:
+        text (str): Text to wrap
+        width (Optional[int]): Specific width to wrap to, defaults to terminal width
+        indent (int): Number of spaces to indent wrapped lines
+    """
+    if width is None:
+        width, _ = get_terminal_size()
+    
+    # Adjust width for indent
+    effective_width = width - indent
+    
+    # Normalize whitespace and split into paragraphs
+    paragraphs = [p.strip() for p in text.strip().split('\n\n')]
+    wrapped_paragraphs = []
+    
+    for paragraph in paragraphs:
+        # Normalize spaces and remove existing indentation
+        paragraph = ' '.join(paragraph.split())
+        
+        # Wrap the paragraph
+        wrapped = textwrap.fill(
+            paragraph,
+            width=effective_width,
+            expand_tabs=True,
+            replace_whitespace=True,
+            break_long_words=False,
+            break_on_hyphens=True,
+            initial_indent=' ' * indent,
+            subsequent_indent=' ' * indent
+        )
+        
+        wrapped_paragraphs.append(wrapped)
+    
+    # Join paragraphs with double newlines
+    return '\n\n'.join(wrapped_paragraphs)
+
+def print_wrapped(text: str, delay: Optional[float] = None, indent: int = 0) -> None:
+    """
+    Print text with proper wrapping and optional slow printing effect.
+    
+    Args:
+        text (str): Text to print
+        delay (Optional[float]): Delay between characters for slow printing
+        indent (int): Number of spaces to indent text
+    """
+    wrapped_text = wrap_text(text, indent=indent)
+    
+    if delay is not None:
+        print_slowly(wrapped_text, delay)
+    else:
+        print(wrapped_text)
+
+# Update the original print_slowly function to use wrapping
+def print_slowly(text: str, delay: float = 0.03) -> None:
+    """Print text character by character with proper wrapping."""
+    wrapped_text = wrap_text(text)
+    
+    try:
+        for char in wrapped_text:
+            sys.stdout.write(char)
+            sys.stdout.flush()
+            time.sleep(delay)
+    except KeyboardInterrupt:
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+        logger.info("Text display interrupted by user")
+        raise
+    except Exception as e:
+        logger.error(f"Error in print_slowly: {e}")
+        print(f"\nError displaying text: {e}")
+    finally:
+        print()
 
 # Configure root logger
 logging.basicConfig(
