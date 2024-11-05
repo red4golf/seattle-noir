@@ -5,6 +5,9 @@ import logging
 import json
 from typing import Tuple, Optional, Dict, Any, List
 from functools import wraps
+from dataclasses import dataclass, asdict
+from datetime import datetime
+from pathlib import Path
 
 # Configure root logger
 logging.basicConfig(
@@ -14,6 +17,17 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+@dataclass
+class SaveGameData:
+    """Data structure for saved game state"""
+    save_name: str
+    save_date: str
+    current_location: str
+    inventory: List[str]
+    game_state: Dict[str, Any]
+    player_stats: Dict[str, Any]
+    version: str = "1.0.0"
 
 class DisplayManager:
     """Handles all display-related functionality."""
@@ -99,7 +113,7 @@ class InputValidator:
     """Handles input validation for game commands."""
     
     # Valid commands that don't require arguments
-    BASIC_COMMANDS = {'quit', 'help', 'look', 'inventory', 'talk', 'history', 'solve', 'save', 'load'}
+    BASIC_COMMANDS = {'quit', 'help', 'look', 'inventory', 'talk', 'history', 'solve', 'save', 'load', 'saves'}
     
     # Commands that require arguments
     COMPLEX_COMMANDS = {'take', 'go', 'examine', 'use', 'combine'}
@@ -160,65 +174,290 @@ class InputValidator:
             bool: True if valid, False otherwise
         """
         return bool(direction and direction in valid_exits)
-
-class GameState:
-    """Handles game state saving and loading."""
+class SaveLoadManager:
+    """Manages saving and loading game states with error handling and validation"""
     
-    SAVE_DIR = "saves"
-    
-    @classmethod
-    def _ensure_save_directory(cls) -> None:
-        """Ensure the save directory exists."""
-        if not os.path.exists(cls.SAVE_DIR):
-            os.makedirs(cls.SAVE_DIR)
+    def __init__(self, save_dir: str = "saves"):
+        self.save_dir = Path(save_dir)
+        self.save_dir.mkdir(exist_ok=True)
+        self.logger = logging.getLogger(__name__)
+        
+    def create_save_data(self, game_instance: 'SeattleNoir') -> SaveGameData:
+        """Create a SaveGameData object from current game state"""
+        return SaveGameData(
+            save_name=f"autosave_{int(time.time())}" if not game_instance else "manual_save",
+            save_date=datetime.now().isoformat(),
+            current_location=game_instance.current_location,
+            inventory=game_instance.item_manager.get_inventory(),
+            game_state=game_instance.game_state,
+            player_stats={
+                "newspaper_pieces": game_instance.newspaper_pieces,
+                "morse_attempts": game_instance.puzzle_solver.morse_attempts,
+                "cipher_attempts": game_instance.puzzle_solver.cipher_attempts
+            }
+        )
 
-    @classmethod
-    def save_game_state(cls, state: Dict[str, Any], filename: str = 'savegame.json') -> bool:
+    def save_game(self, game_instance: 'SeattleNoir', save_name: str = None) -> bool:
         """
-        Save game state to a file.
+        Save the current game state to a file.
         
         Args:
-            state (Dict[str, Any]): Game state to save
-            filename (str): File to save to
+            game_instance: Current game instance
+            save_name: Optional name for save file
             
         Returns:
-            bool: True if successful, False otherwise
+            bool: True if save successful, False otherwise
         """
         try:
-            cls._ensure_save_directory()
-            filepath = os.path.join(cls.SAVE_DIR, filename)
-            with open(filepath, 'w') as f:
-                json.dump(state, f, indent=2)
-            logger.info(f"Game state saved to {filepath}")
+            # Generate default save name if none provided
+            if not save_name:
+                save_name = f"autosave_{int(time.time())}"
+            
+            # Create save data
+            save_data = SaveGameData(
+                save_name=save_name,
+                save_date=datetime.now().isoformat(),
+                current_location=game_instance.current_location,
+                inventory=game_instance.item_manager.get_inventory(),
+                game_state=game_instance.game_state,
+                player_stats={
+                    "newspaper_pieces": game_instance.newspaper_pieces,
+                    "morse_attempts": game_instance.puzzle_solver.morse_attempts,
+                    "cipher_attempts": game_instance.puzzle_solver.cipher_attempts
+                }
+            )
+            
+            # Generate file path
+            file_path = self.save_dir / f"{save_name}.json"
+            
+            # Save the data
+            with open(file_path, 'w') as f:
+                json.dump(asdict(save_data), f, indent=2)
+            
+            self.logger.info(f"Game saved successfully to {file_path}")
             return True
+            
         except Exception as e:
-            logger.error(f"Error saving game state: {e}")
+            self.logger.error(f"Error saving game: {e}")
             return False
 
-    @classmethod
-    def load_game_state(cls, filename: str = 'savegame.json') -> Optional[Dict[str, Any]]:
+    def load_game(self, game_instance: 'SeattleNoir', save_name: str) -> bool:
         """
-        Load game state from a file.
-        
+        Load a saved game state.
+    
         Args:
-            filename (str): File to load from
-            
+            game_instance: Current game instance
+            save_name: Name of save file to load
+        
         Returns:
-            Optional[Dict[str, Any]]: Loaded game state or None if failed
+            bool: True if load successful, False otherwise
         """
         try:
-            filepath = os.path.join(cls.SAVE_DIR, filename)
-            if not os.path.exists(filepath):
-                return None
-            with open(filepath, 'r') as f:
-                state = json.load(f)
-            logger.info(f"Game state loaded from {filepath}")
-            return state
+            # Generate file path
+            file_path = self.save_dir / f"{save_name}.json"
+        
+            # Check if file exists
+            if not file_path.exists():
+                self.logger.error(f"Save file not found: {file_path}")
+                return False
+        
+            # Load and validate save data
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+                save_data = SaveGameData(**data)
+        
+            # Restore game state in correct order
+            # First restore game state dictionary
+            game_instance.game_state = save_data.game_state
+        
+            # Then update location manager state
+            game_instance.current_location = save_data.current_location
+            game_instance.location_manager.current_location = save_data.current_location
+        
+            # Restore inventory
+            game_instance.item_manager.inventory = save_data.inventory
+        
+            # Restore player stats
+            game_instance.newspaper_pieces = save_data.player_stats["newspaper_pieces"]
+            game_instance.puzzle_solver.morse_attempts = save_data.player_stats["morse_attempts"]
+            game_instance.puzzle_solver.cipher_attempts = save_data.player_stats["cipher_attempts"]
+        
+            self.logger.info(f"Game loaded successfully from {file_path}")
+            return True
+        
         except Exception as e:
-            logger.error(f"Error loading game state: {e}")
-            return None
+            self.logger.error(f"Error loading game: {e}")
+            return False
+
+    def list_saves(self) -> List[Dict[str, Any]]:
+        """
+        List all available save files with metadata.
+        
+        Returns:
+            List of dictionaries containing save file information
+        """
+        saves = []
+        for save_file in self.save_dir.glob("*.json"):
+            try:
+                with open(save_file, 'r') as f:
+                    save_data = json.load(f)
+                saves.append({
+                    'name': save_data['save_name'],
+                    'date': save_data['save_date'],
+                    'location': save_data['current_location'],
+                    'file_path': str(save_file)
+                })
+            except Exception as e:
+                self.logger.warning(f"Error reading save file {save_file}: {e}")
+        
+        return sorted(saves, key=lambda x: x['date'], reverse=True)
+
+    def delete_save(self, save_name: str) -> bool:
+        """
+        Delete a save file.
+        
+        Args:
+            save_name: Name of save to delete
+            
+        Returns:
+            bool: True if deletion successful, False otherwise
+        """
+        try:
+            file_path = self.save_dir / f"{save_name}.json"
+            if file_path.exists():
+                file_path.unlink()
+                self.logger.info(f"Deleted save file: {file_path}")
+                return True
+            return False
+        except Exception as e:
+            self.logger.error(f"Error deleting save file: {e}")
+            return False
+
+    def auto_save(self, game_instance: 'SeattleNoir') -> bool:
+        """
+        Create an automatic save of the current game state.
+        
+        Args:
+            game_instance: Current game instance
+            
+        Returns:
+            bool: True if autosave successful, False otherwise
+        """
+        try:
+            # Create autosave name with timestamp
+            save_name = f"autosave_{int(time.time())}"
+            
+            # Attempt to save
+            if not self.save_game(game_instance, save_name):
+                self.logger.error("Failed to create auto-save")
+                return False
+                
+            # Clean up old auto-saves
+            self._cleanup_old_autosaves()
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error during auto-save: {e}")
+            return False
+
+    def _cleanup_old_autosaves(self, keep_count: int = 5) -> None:
+        """
+        Clean up old auto-save files, keeping only the most recent ones.
+        
+        Args:
+            keep_count: Number of recent auto-saves to keep (default: 5)
+        """
+        try:
+            # Get all auto-save files
+            autosaves = []
+            for save_file in self.save_dir.glob("autosave_*.json"):
+                try:
+                    timestamp = int(save_file.stem.split('_')[1])
+                    autosaves.append((timestamp, save_file))
+                except (IndexError, ValueError):
+                    # Handle files that don't match our naming pattern
+                    continue
+            
+            # Sort by timestamp (newest first) and remove old ones
+            autosaves.sort(reverse=True)
+            
+            # Keep the newest 'keep_count' saves, delete the rest
+            for _, file_path in autosaves[keep_count:]:
+                try:
+                    file_path.unlink()
+                    self.logger.info(f"Cleaned up old auto-save: {file_path}")
+                except Exception as e:
+                    self.logger.warning(f"Failed to delete old auto-save {file_path}: {e}")
+                    
+        except Exception as e:
+            self.logger.error(f"Error during auto-save cleanup: {e}")
+
+    def get_autosave_stats(self) -> Dict[str, Any]:
+        """
+        Get statistics about auto-saves.
+        
+        Returns:
+            Dict containing auto-save statistics
+        """
+        try:
+            autosaves = list(self.save_dir.glob("autosave_*.json"))
+            total_size = sum(f.stat().st_size for f in autosaves)
+            
+            return {
+                'count': len(autosaves),
+                'total_size_bytes': total_size,
+                'oldest': min(f.stat().st_mtime for f in autosaves) if autosaves else None,
+                'newest': max(f.stat().st_mtime for f in autosaves) if autosaves else None,
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting auto-save stats: {e}")
+            return {
+                'count': 0,
+                'total_size_bytes': 0,
+                'oldest': None,
+                'newest': None,
+                'error': str(e)
+            }
+
+    def manage_saves(self, max_total_size_mb: float = 50.0) -> None:
+        """
+        Manage all save files to prevent excessive disk usage.
+        
+        Args:
+            max_total_size_mb: Maximum total size of all saves in MB
+        """
+        try:
+            all_saves = list(self.save_dir.glob("*.json"))
+            total_size = sum(f.stat().st_size for f in all_saves)
+            
+            # If total size exceeds limit, remove old auto-saves first
+            if total_size > max_total_size_mb * 1024 * 1024:
+                self.logger.warning("Save directory size exceeds limit, cleaning up...")
+                
+                # Sort saves by modification time (oldest first)
+                saves_by_time = sorted(
+                    (f for f in all_saves if f.stem.startswith('autosave_')),
+                    key=lambda f: f.stat().st_mtime
+                )
+                
+                # Remove old auto-saves until we're under the limit
+                for save_file in saves_by_time:
+                    if total_size <= max_total_size_mb * 1024 * 1024:
+                        break
+                        
+                    try:
+                        size = save_file.stat().st_size
+                        save_file.unlink()
+                        total_size -= size
+                        self.logger.info(f"Removed old auto-save to free space: {save_file}")
+                    except Exception as e:
+                        self.logger.error(f"Failed to remove old save {save_file}: {e}")
+                        
+        except Exception as e:
+            self.logger.error(f"Error managing saves: {e}")
 
 class ErrorHandler:
+    # ... rest of the file continues as before ...
     """Handles error management and logging."""
     
     @staticmethod

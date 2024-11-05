@@ -3,7 +3,8 @@ import logging
 from location_manager import LocationManager
 from puzzle_solver import PuzzleSolver
 from item_manager import ItemManager
-from utils import clear_screen, print_slowly
+from utils import clear_screen, print_slowly, SaveLoadManager
+from datetime import datetime  # Add if not already present
 
 def show_title_screen():
     """Display the game's title screen with complete title and cityscape."""
@@ -81,6 +82,9 @@ class SeattleNoir:
         self.location_manager = LocationManager()
         self.puzzle_solver = PuzzleSolver()
         self.item_manager = ItemManager()
+        self.save_load_manager = SaveLoadManager()
+        self.last_save_time = datetime.now()
+        self.auto_save_interval = 300  # 5 minutes in seconds
         
         # Game state properties
         self.newspaper_pieces = 0
@@ -133,11 +137,73 @@ class SeattleNoir:
         print("- history: Learn historical facts about your location")
         print("- solve: Attempt to solve a puzzle in your location")
         print("- quit: Exit the game")
+        print("- save [name]: Save your game")
+        print("- load [name]: Load a saved game")
+        print("- saves: List available saves")
         print("- help: Show this help message")
+
+    def handle_save_load_commands(self, command: str) -> bool:
+        """Handle save/load related commands."""
+        cmd_parts = command.split()
+        cmd_type = cmd_parts[0]
+
+        if cmd_type == "save":
+            save_name = cmd_parts[1] if len(cmd_parts) > 1 else None
+            if self.save_load_manager.save_game(self, save_name):
+                print("\nGame saved successfully.")
+            else:
+                print("\nFailed to save game.")
+            return True
+
+        elif cmd_type == "load":
+            if len(cmd_parts) < 2:
+                print("\nPlease specify a save name to load.")
+                return True
+            
+            save_name = cmd_parts[1]
+            if self.save_load_manager.load_game(self, save_name):
+                print(f"\nLoaded save: {save_name}")
+                print("\n" + self.location_manager.get_location_description())
+            else:
+                print("\nFailed to load save.")
+            return True
+
+        elif cmd_type == "saves":
+            saves = self.save_load_manager.list_saves()
+            if not saves:
+                print("\nNo save files found.")
+                return True
+            
+            print("\nAvailable saves:")
+            for save in saves:
+                print(f"- {save['name']} ({save['date']})")
+                print(f"  Location: {save['location']}")
+            return True
+
+        return False
+
+    def check_auto_save(self) -> None:
+        """Check if it's time for an auto-save and manage save files."""
+        current_time = datetime.now()
+        if (current_time - self.last_save_time).total_seconds() >= self.auto_save_interval:
+            try:
+                # Manage saves first
+                self.save_load_manager.manage_saves()
+            
+                # Then create new auto-save
+                if self.save_load_manager.auto_save(self):
+                    self.last_save_time = current_time
+                
+            except Exception as e:
+                logging.error(f"Auto-save error: {e}")
 
     def process_command(self, command: str) -> bool:
         """Process player commands and return False if quitting, True otherwise."""
         try:
+            # Handle save/load commands first
+            if command.startswith(('save', 'load', 'saves')):
+                return self.handle_save_load_commands(command)
+
             # Split the command into parts
             parts = command.split()
             if not parts:
@@ -146,7 +212,7 @@ class SeattleNoir:
 
             cmd_type = parts[0]
             cmd_args = parts[1:] if len(parts) > 1 else [""]
-            
+        
             # Handle combine command separately due to multiple arguments
             if cmd_type == "combine":
                 if len(cmd_args) != 2:
@@ -168,20 +234,21 @@ class SeattleNoir:
                 "solve": lambda: (self.puzzle_solver.handle_puzzle(self.current_location, self.game_state), True)[1],
                 "use": lambda: (self.item_manager.use_item(cmd_args[0], self.current_location, self.game_state), True)[1]
             }
-            
+        
             if cmd_type not in command_handlers:
                 print("Invalid command. Type 'help' for a list of commands.")
                 return True
-            
-            return command_handlers[cmd_type]()
         
+            result = command_handlers[cmd_type]()
+            self.check_auto_save()  # Check for auto-save after command
+            return result
+    
         except Exception as e:
             logging.error(f"Error processing command '{command}': {e}")
             print(f"An error occurred: {e}")
             print("Type 'help' for a list of valid commands.")
-        
-        return True
-
+            return True
+    
     def handle_take_command(self, item: str) -> None:
         """Handle the take command and update game state accordingly."""
         available_items = self.location_manager.get_available_items()
