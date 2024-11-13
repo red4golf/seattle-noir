@@ -54,6 +54,9 @@ COMPLEX_COMMANDS = {
 
 # Initial Game State
 INITIAL_GAME_STATE: Dict[str, Any] = {
+    "cipher_attempts": 3,
+    "inventory": [],
+    "current_location": 'start',
     "morse_attempts": 0,
     "car_tracking_attempts": 0,
     "has_badge": False,
