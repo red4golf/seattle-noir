@@ -3,28 +3,23 @@ import sys
 import time
 import logging
 import json
-import os
-import textwrap
 import shutil
-import os
 import textwrap
-import shutil
-from typing import Optional
 from typing import Tuple, Optional, Dict, Any, List
 from functools import wraps
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+import config
 
 def get_terminal_size() -> tuple[int, int]:
     """Get the current terminal size with fallback values."""
     try:
         width, height = shutil.get_terminal_size()
-        width = max(40, min(width, 120))
+        width = max(config.MIN_TERMINAL_WIDTH, min(width, config.MAX_TERMINAL_WIDTH))
         return width, height
     except Exception:
-        return 80, 24
+        return config.DEFAULT_TERMINAL_WIDTH, config.DEFAULT_TERMINAL_HEIGHT
 
 def wrap_text(text: str, width: Optional[int] = None, indent: int = 0) -> str:
     """
@@ -83,7 +78,7 @@ def print_wrapped(text: str, delay: Optional[float] = None, indent: int = 0) -> 
         print(wrapped_text)
 
 # Update the original print_slowly function to use wrapping
-def print_slowly(text: str, delay: float = 0.03) -> None:
+def print_slowly(text: str, delay: float = config.TEXT_DELAY) -> None:
     """Print text character by character with proper wrapping."""
     wrapped_text = wrap_text(text)
     
@@ -105,9 +100,9 @@ def print_slowly(text: str, delay: float = 0.03) -> None:
 
 # Configure root logger
 logging.basicConfig(
-    filename='seattlenoir.log',
+    filename=config.LOG_FILE,
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+    format=config.LOG_FORMAT
 )
 
 logger = logging.getLogger(__name__)
@@ -207,10 +202,10 @@ class InputValidator:
     """Handles input validation for game commands."""
     
     # Valid commands that don't require arguments
-    BASIC_COMMANDS = {'quit', 'help', 'look', 'inventory', 'talk', 'history', 'solve', 'save', 'load', 'saves'}
+    BASIC_COMMANDS = config.BASIC_COMMANDS
     
     # Commands that require arguments
-    COMPLEX_COMMANDS = {'take', 'go', 'examine', 'use', 'combine'}
+    COMPLEX_COMMANDS = config.COMPLEX_COMMANDS
     
     @staticmethod
     def validate_command(command: str) -> Tuple[bool, str, str]:
@@ -271,7 +266,7 @@ class InputValidator:
 class SaveLoadManager:
     """Manages saving and loading game states with error handling and validation"""
     
-    def __init__(self, save_dir: str = "saves"):
+    def __init__(self, save_dir: str = str(config.SAVE_DIR)):
         self.save_dir = Path(save_dir)
         self.save_dir.mkdir(exist_ok=True)
         self.logger = logging.getLogger(__name__)
@@ -454,7 +449,7 @@ class SaveLoadManager:
             self.logger.error(f"Error during auto-save: {e}")
             return False
 
-    def _cleanup_old_autosaves(self, keep_count: int = 5) -> None:
+    def _cleanup_old_autosaves(self, keep_count: int = config.MAX_AUTO_SAVES) -> None:
         """
         Clean up old auto-save files, keeping only the most recent ones.
         
@@ -513,7 +508,7 @@ class SaveLoadManager:
                 'error': str(e)
             }
 
-    def manage_saves(self, max_total_size_mb: float = 50.0) -> None:
+    def manage_saves(self, max_total_size_mb: float = config.MAX_SAVE_DIR_SIZE_MB) -> None:
         """
         Manage all save files to prevent excessive disk usage.
         

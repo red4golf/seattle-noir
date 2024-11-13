@@ -1,11 +1,12 @@
 from typing import Dict, List, Optional, Set, Tuple
 from datetime import datetime
 import logging
+import config
 
 class ItemManager:
     def __init__(self):
         self.inventory: List[str] = []
-        self.newspaper_pieces: int = 0
+        self.newspaper_pieces: int = config.INITIAL_GAME_STATE.get("newspaper_pieces", 0)
         self.discovered_combinations: Set[str] = set()
         
         # Define valid item combinations and their results
@@ -144,12 +145,8 @@ class ItemManager:
         self.inventory.append(item)
         
         # Special case for badge and wallet
-        if item == "badge":
-            game_state["has_badge"] = True
-            print("You clip the badge to your belt. Its familiar weight is reassuring.")
-        elif item == "wallet":
-            game_state["found_wallet"] = True
-            print("Inside the wallet, you find a business card for 'Maritime Imports Ltd.' Interesting...")
+        if item in config.REQUIRED_ITEMS:
+            game_state[f"found_{item}"] = True
             
         # Check for newspaper pieces
         if item.startswith("newspaper_piece_"):

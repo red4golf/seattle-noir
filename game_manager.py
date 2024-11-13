@@ -4,7 +4,8 @@ from location_manager import LocationManager
 from puzzle_solver import PuzzleSolver
 from item_manager import ItemManager
 from utils import clear_screen, print_wrapped, SaveLoadManager
-from datetime import datetime  # Add if not already present
+from datetime import datetime
+import config
 
 def show_title_screen():
     """Display the game's title screen with complete title and cityscape."""
@@ -54,47 +55,25 @@ class SeattleNoir:
     
     def __init__(self):
         """Initialize the game state and managers."""
-        self.game_state = {
-            "morse_attempts": 0,
-            "car_tracking_attempts": 0,
-            "has_badge": False,
-            "has_badge_shown": False,
-            "found_wallet": False,
-            "spoke_to_witness": False,
-            "discovered_clue": False,
-            "solved_cipher": False,
-            "found_secret_room": False,
-            "tracked_car": False,
-            "solved_radio_puzzle": False,
-            "completed_smith_tower": False,
-            "found_all_newspaper_pieces": False,
-            "warehouse_unlocked": False,
-            "understood_radio": False,
-            "observed_suspicious_activity": False,
-            "case_insights": False,
-            "evidence_connection": False,
-            "decoded_message": False,
-            "radio_frequency": False,
-            "mapped_route": False
-        }
+        self.game_state = config.INITIAL_GAME_STATE.copy()
         
         # Initialize managers
         self.location_manager = LocationManager()
         self.puzzle_solver = PuzzleSolver()
         self.item_manager = ItemManager()
-        self.save_load_manager = SaveLoadManager()
+        self.save_load_manager = SaveLoadManager(config.SAVE_DIR)
         self.last_save_time = datetime.now()
-        self.auto_save_interval = 300  # 5 minutes in seconds
+        self.auto_save_interval = config.AUTO_SAVE_INTERVAL
         
         # Game state properties
         self.newspaper_pieces = 0
-        self.current_location = "police_station"
+        self.current_location = config.STARTING_LOCATION
         
         # Configure logging
         logging.basicConfig(
-            filename='seattle_noir.log',
+            filename=config.LOG_FILE,
             level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s'
+            format=config.LOG_FORMAT
         )
 
     def show_intro(self) -> None:
@@ -209,10 +188,10 @@ class SeattleNoir:
     def check_auto_save(self) -> None:
         """Check if it's time for an auto-save and manage save files."""
         current_time = datetime.now()
-        if (current_time - self.last_save_time).total_seconds() >= self.auto_save_interval:
+        if (current_time - self.last_save_time).total_seconds() >= config.AUTO_SAVE_INTERVAL:
             try:
                 # Manage saves first
-                self.save_load_manager.manage_saves()
+                self.save_load_manager.manage_saves(config.MAX_SAVE_DIR_SIZE_MB)
             
                 # Then create new auto-save
                 if self.save_load_manager.auto_save(self):
@@ -303,29 +282,10 @@ class SeattleNoir:
 
     def check_game_progress(self) -> bool:
         """Check if the player has solved the case."""
-        required_items = {
-            "torn_letter",
-            "dock_schedule",
-            "wallet",
-            "smuggling_plans",
-            "coded_message"
-        }
-        
-        required_states = {
-            "spoke_to_witness",
-            "discovered_clue",
-            "solved_cipher",
-            "solved_radio_puzzle",
-            "found_secret_room",
-            "tracked_car",
-            "evidence_connection",
-            "decoded_message",
-            "mapped_route"
-        }
-        
-        return (all(self.item_manager.has_item(item) for item in required_items) and
-                all(self.game_state[state] for state in required_states))
+        return (all(self.item_manager.has_item(item) for item in config.REQUIRED_ITEMS) and
+                all(self.game_state[state] for state in config.REQUIRED_STATES))
 
+    
     def show_ending(self) -> None:
         """Display the game's ending sequence."""
         ending_text = """

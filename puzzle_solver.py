@@ -1,11 +1,12 @@
 from typing import Dict, Optional, List
 import random
 import logging
+import config
 
 class PuzzleSolver:
     def __init__(self):
-        self.morse_attempts: int = 0
-        self.cipher_attempts: int = 0
+        self.morse_attempts: int = config.INITIAL_GAME_STATE["morse_attempts"]
+        self.cipher_attempts: int = config.INITIAL_GAME_STATE["cipher_attempts"]
         self.radio_frequency: Optional[int] = None
         
         self.MORSE_CODE = {

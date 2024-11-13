@@ -1,10 +1,11 @@
 from typing import Dict, Optional, List
 import json
+import config
 
 class LocationManager:
     def __init__(self):
         """Initialize the LocationManager with all game locations and routes."""
-        self.current_location: str = "police_station"
+        self.current_location: str = config.STARTING_LOCATION
         self.trolley_position: int = 0
         
         # Initialize locations dictionary
