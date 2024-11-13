@@ -21,7 +21,7 @@ Seattle Noir is a detective text adventure game set in 1947 post-war Seattle. Pl
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/seattle-noir.git
+git clone https://github.com/red4golf/seattle-noir.git
 cd seattle-noir
 ```
 
