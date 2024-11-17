@@ -258,6 +258,7 @@ class SeattleNoir:
         result = self.item_manager.take_item(item, available_items, self.game_state)
         if result:
             self.location_manager.remove_item(item)
+            
 
     def handle_movement_command(self, direction: str) -> bool:
         """Handle movement commands and location transitions."""

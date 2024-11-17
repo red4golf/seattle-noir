@@ -116,7 +116,13 @@ class SaveGameData:
     inventory: List[str]
     game_state: Dict[str, Any]
     player_stats: Dict[str, Any]
+    location_states: Dict[str, Dict[str, Any]] = None
     version: str = "1.0.0"
+
+    def __post_init__(self):
+        """Initialize optional fields if they're None"""
+        if self.location_states is None:
+            self.location_states = {}
 
 class DisplayManager:
     """Handles all display-related functionality."""
@@ -283,7 +289,8 @@ class SaveLoadManager:
                 "newspaper_pieces": game_instance.newspaper_pieces,
                 "morse_attempts": game_instance.puzzle_solver.morse_attempts,
                 "cipher_attempts": game_instance.puzzle_solver.cipher_attempts
-            }
+            },
+            location_states=game_instance.location_manager.get_location_states()
         )
 
     def save_game(self, game_instance: 'SeattleNoir', save_name: str = None) -> bool:
@@ -331,52 +338,68 @@ class SaveLoadManager:
             return False
 
     def load_game(self, game_instance: 'SeattleNoir', save_name: str) -> bool:
-        """
-        Load a saved game state.
-    
-        Args:
-            game_instance: Current game instance
-            save_name: Name of save file to load
-        
-        Returns:
-            bool: True if load successful, False otherwise
-        """
+        """Load a saved game state."""
         try:
-            # Generate file path
             file_path = self.save_dir / f"{save_name}.json"
-        
-            # Check if file exists
             if not file_path.exists():
-                self.logger.error(f"Save file not found: {file_path}")
+                print(f"\nSave file not found: {save_name}.json")
                 return False
-        
-            # Load and validate save data
+
             with open(file_path, 'r') as f:
                 data = json.load(f)
                 save_data = SaveGameData(**data)
-        
-            # Restore game state in correct order
-            # First restore game state dictionary
-            game_instance.game_state = save_data.game_state
-        
-            # Then update location manager state
+
+            # Restore all game state
             game_instance.current_location = save_data.current_location
             game_instance.location_manager.current_location = save_data.current_location
-        
-            # Restore inventory
             game_instance.item_manager.inventory = save_data.inventory
-        
-            # Restore player stats
+            game_instance.game_state = save_data.game_state
             game_instance.newspaper_pieces = save_data.player_stats["newspaper_pieces"]
             game_instance.puzzle_solver.morse_attempts = save_data.player_stats["morse_attempts"]
             game_instance.puzzle_solver.cipher_attempts = save_data.player_stats["cipher_attempts"]
         
-            self.logger.info(f"Game loaded successfully from {file_path}")
-            return True
+            # Update location states but keep the base location data
+            for location, state in save_data.location_states.items():
+                if location in game_instance.location_manager.locations:
+                    game_instance.location_manager.locations[location]["items"] = state["items"]
+                    game_instance.location_manager.locations[location]["first_visit"] = state["first_visit"]
         
+            print(f"\nLoaded save: {save_name}")
+            return True
+
         except Exception as e:
-            self.logger.error(f"Error loading game: {e}")
+            self.logger.error(f"Error loading game: {str(e)}")
+            print(f"\nError loading save: {str(e)}")
             return False
+        
+    def _verify_loaded_state(self, game_instance: 'SeattleNoir', save_data: SaveGameData) -> None:
+        """
+        Verify the integrity of loaded game state.
+    
+        Args:
+            game_instance: Current game instance
+            save_data: Loaded save data
+        """
+        try:
+            # Verify current location is valid
+            if game_instance.current_location not in game_instance.location_manager.locations:
+                self.logger.error(f"Invalid current location: {game_instance.current_location}")
+            
+            # Verify inventory items exist
+            for item in game_instance.item_manager.inventory:
+                if item not in config.ITEM_DESCRIPTIONS:
+                    self.logger.warning(f"Unknown item in inventory: {item}")
+                
+            # Check for any duplicate items (shouldn't exist in both inventory and locations)
+            inventory_items = set(game_instance.item_manager.inventory)
+            for location, data in game_instance.location_manager.locations.items():
+                location_items = set(data.get("items", []))
+                duplicates = inventory_items.intersection(location_items)
+                if duplicates:
+                    self.logger.warning(f"Found duplicate items in both inventory and location {location}: {duplicates}")
+                
+        except Exception as e:
+            self.logger.error(f"Error verifying loaded state: {e}")
 
     def list_saves(self) -> List[Dict[str, Any]]:
         """
