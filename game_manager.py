@@ -203,9 +203,8 @@ class SeattleNoir:
     def process_command(self, command: str) -> bool:
         """Process player commands and return False if quitting, True otherwise."""
         try:
-            # Handle save/load commands first
-            if command.startswith(('save', 'load', 'saves')):
-                return self.handle_save_load_commands(command)
+            # Store command for trolley system
+            self.location_manager.last_command = command
 
             # Split the command into parts
             parts = command.split()
@@ -213,9 +212,18 @@ class SeattleNoir:
                 print("Please enter a command. Type 'help' for options.")
                 return True
 
-            cmd_type = parts[0]
+            cmd_type = parts[0].lower()
             cmd_args = parts[1:] if len(parts) > 1 else [""]
-        
+
+            # Handle save/load commands first
+            if cmd_type in ('save', 'load', 'saves'):
+                return self.handle_save_load_commands(command)
+            
+            # Special trolley commands
+            if self.current_location == "trolley" and cmd_type in ["status", "history", "look", "next"]:
+                self.location_manager.handle_trolley()
+                return True
+
             # Handle combine command separately due to multiple arguments
             if cmd_type == "combine":
                 if len(cmd_args) != 2:
@@ -237,15 +245,15 @@ class SeattleNoir:
                 "solve": lambda: (self.puzzle_solver.handle_puzzle(self.current_location, self.game_state), True)[1],
                 "use": lambda: (self.item_manager.use_item(cmd_args[0], self.current_location, self.game_state), True)[1]
             }
-        
+
             if cmd_type not in command_handlers:
                 print("Invalid command. Type 'help' for a list of commands.")
                 return True
-        
+
             result = command_handlers[cmd_type]()
-            self.check_auto_save()  # Check for auto-save after command
+            self.check_auto_save()
             return result
-    
+
         except Exception as e:
             logging.error(f"Error processing command '{command}': {e}")
             print(f"An error occurred: {e}")

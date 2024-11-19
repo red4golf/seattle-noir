@@ -2,6 +2,7 @@ from typing import Dict, Optional, List
 import json
 import logging
 import config
+from trolley_system import TrolleySystem, TrolleyState
 
 class LocationManager:
     def __init__(self):
@@ -17,7 +18,7 @@ class LocationManager:
         # Store the original item configurations
         for location, data in self.locations.items():
             self.original_items[location] = data.get("items", []).copy()
-        
+        self.trolley = TrolleySystem()
         
     def get_location_description(self) -> str:
         """Get the description of the current location."""
@@ -69,6 +70,12 @@ class LocationManager:
                 return False
 
             new_location = current_location["exits"][direction]
+
+            #Special Trolley Handling
+            if new_location == "trolley":
+                self.current_location = new_location
+                self.handle_trolley()
+                return True
         
             # Check for special requirements
             if new_location in self.locations and "requires" in self.locations[new_location]:
@@ -91,29 +98,47 @@ class LocationManager:
             return False
     
     def handle_trolley(self) -> None:
-        """Handle trolley movement and stops."""
         try:
             if self.current_location != "trolley":
                 return
-       
-            current_stop = self.trolley_routes[self.trolley_position]
-            print(f"\nCurrent Stop: {current_stop['description']}")
-       
-            # Update available exits
-            self.locations["trolley"]["exits"] = current_stop["exits"]
-            if self.trolley_position < 3:
-                self.locations["trolley"]["exits"]["next"] = "trolley"
-                self.trolley_position += 1
+            
+            # First boarding
+            if self.locations["trolley"].get("first_visit", True):
+                self.locations["trolley"]["first_visit"] = False
+                print(self.trolley.board_trolley())
+                initial_exits = {"next": "trolley", "off": self.trolley.routes[0]["exits"]["off"]}
+                self.locations["trolley"]["exits"] = initial_exits
+                return
+
+            # Get current command
+            command = self.last_command.lower().strip() if hasattr(self, 'last_command') else ""
+        
+            if command == "status":
+                print(self.trolley.get_status())
+            elif command == "history":
+                print(self.trolley.get_history())
+            elif command == "look":
+                print(self.trolley.get_status())
+            elif command in ["next", "off"]:
+                message, exits = self.trolley.handle_movement()
+                print(message)
+                self.locations["trolley"]["exits"] = exits
             else:
-                print("This is the end of the line.")
-                self.trolley_position = 0
-           
-        except KeyError as e:
-            logging.error(f"Invalid trolley position: {self.trolley_position}")
-            print("There seems to be a problem with the trolley route.")
+                print("Invalid trolley command. Use: next, off, status, history, or look")
+            
         except Exception as e:
             logging.error(f"Error handling trolley: {e}")
             print("There was a problem with the trolley system.")
+
+    def save_state(self) -> Dict:
+        state = super().save_state()
+        state['trolley'] = self.trolley.get_state()
+        return state
+
+    def load_state(self, state: Dict) -> None:
+        super().load_state(state)
+        if 'trolley' in state:
+            self.trolley.restore_state(state['trolley'])
 
     def show_historical_note(self, location: str) -> None:
         """Display historical information about the specified location."""

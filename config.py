@@ -320,11 +320,11 @@ LOCATIONS = {
         "historical_note": "Seattle's trolley system, started in 1884, was essential for connecting the city's neighborhoods."
     },
     "trolley": {
-        "description": "You're aboard one of Seattle's electric trolleys. The wooden seats and brass fixtures speak to an earlier era. Through the windows, you can see the city passing by.",
-        "exits": {},  # This will be dynamically updated by handle_trolley
+        "description": "",  # Empty string since we'll use TrolleySystem's messages
+        "exits": {},  # Will be dynamically updated
         "items": [],
         "first_visit": True,
-        "historical_note": "Seattle's trolley system, dating from 1884, was instrumental in the city's early growth, connecting neighborhoods that were once separated by difficult terrain."
+        "historical_note": "Seattle's trolley system, dating from 1884, was instrumental in the city's early growth."
     },
     "smith_tower": {
         "description": "The famous Smith Tower rises above you, its white terra cotta gleaming. Once the tallest building west of the Mississippi, it still commands respect. The elegant lobby features intricate bronze and marble work.",
