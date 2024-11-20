@@ -112,11 +112,8 @@ class SaveGameData:
     """Data structure for saved game state"""
     save_name: str
     save_date: str
-    current_location: str
-    inventory: List[str]
     game_state: Dict[str, Any]
-    player_stats: Dict[str, Any]
-    location_states: Dict[str, Dict[str, Any]] = None
+    location_states: Dict[str, Dict[str, Any]]
     version: str = "1.0.0"
 
     def __post_init__(self):
@@ -270,65 +267,32 @@ class InputValidator:
         """
         return bool(direction and direction in valid_exits)
 class SaveLoadManager:
-    """Manages saving and loading game states with error handling and validation"""
-    
-    def __init__(self, save_dir: str = str(config.SAVE_DIR)):
+    def __init__(self, save_dir: str):
         self.save_dir = Path(save_dir)
         self.save_dir.mkdir(exist_ok=True)
         self.logger = logging.getLogger(__name__)
-        
-    def create_save_data(self, game_instance: 'SeattleNoir') -> SaveGameData:
-        """Create a SaveGameData object from current game state"""
-        return SaveGameData(
-            save_name=f"autosave_{int(time.time())}" if not game_instance else "manual_save",
-            save_date=datetime.now().isoformat(),
-            current_location=game_instance.current_location,
-            inventory=game_instance.item_manager.get_inventory(),
-            game_state=game_instance.game_state,
-            player_stats={
-                "newspaper_pieces": game_instance.newspaper_pieces,
-                "morse_attempts": game_instance.puzzle_solver.morse_attempts,
-                "cipher_attempts": game_instance.puzzle_solver.cipher_attempts
-            },
-            location_states=game_instance.location_manager.get_location_states()
-        )
 
-    def save_game(self, game_instance: 'SeattleNoir', save_name: str = None) -> bool:
-        """
-        Save the current game state to a file.
-        
-        Args:
-            game_instance: Current game instance
-            save_name: Optional name for save file
-            
-        Returns:
-            bool: True if save successful, False otherwise
-        """
+    def save_game(self, game_instance: 'SeattleNoir', save_name: Optional[str] = None) -> bool:
+        """Save the current game state to a file."""
         try:
-            # Generate default save name if none provided
             if not save_name:
                 save_name = f"autosave_{int(time.time())}"
             
-            # Create save data
-            save_data = SaveGameData(
-                save_name=save_name,
-                save_date=datetime.now().isoformat(),
-                current_location=game_instance.current_location,
-                inventory=game_instance.item_manager.get_inventory(),
-                game_state=game_instance.game_state,
-                player_stats={
-                    "newspaper_pieces": game_instance.newspaper_pieces,
-                    "morse_attempts": game_instance.puzzle_solver.morse_attempts,
-                    "cipher_attempts": game_instance.puzzle_solver.cipher_attempts
-                }
-            )
+            # Create save data dictionary with all necessary state
+            save_data = {
+                'save_name': save_name,
+                'save_date': datetime.now().isoformat(),
+                'version': config.SAVE_FILE_VERSION,
+                'game_state': game_instance.game_state,
+                'current_location': game_instance.current_location,
+                'location_states': game_instance.location_manager.get_location_states(),
+                'inventory_state': game_instance.item_manager.get_inventory_state()
+            }
             
-            # Generate file path
             file_path = self.save_dir / f"{save_name}.json"
             
-            # Save the data
             with open(file_path, 'w') as f:
-                json.dump(asdict(save_data), f, indent=2)
+                json.dump(save_data, f, indent=2)
             
             self.logger.info(f"Game saved successfully to {file_path}")
             return True
@@ -342,36 +306,54 @@ class SaveLoadManager:
         try:
             file_path = self.save_dir / f"{save_name}.json"
             if not file_path.exists():
-                print(f"\nSave file not found: {save_name}.json")
+                print(f"\nSave file not found: {save_name}")
                 return False
 
             with open(file_path, 'r') as f:
-                data = json.load(f)
-                save_data = SaveGameData(**data)
+                save_data = json.load(f)
 
-            # Restore all game state
-            game_instance.current_location = save_data.current_location
-            game_instance.location_manager.current_location = save_data.current_location
-            game_instance.item_manager.inventory = save_data.inventory
-            game_instance.game_state = save_data.game_state
-            game_instance.newspaper_pieces = save_data.player_stats["newspaper_pieces"]
-            game_instance.puzzle_solver.morse_attempts = save_data.player_stats["morse_attempts"]
-            game_instance.puzzle_solver.cipher_attempts = save_data.player_stats["cipher_attempts"]
-        
-            # Update location states but keep the base location data
-            for location, state in save_data.location_states.items():
-                if location in game_instance.location_manager.locations:
-                    game_instance.location_manager.locations[location]["items"] = state["items"]
-                    game_instance.location_manager.locations[location]["first_visit"] = state["first_visit"]
-        
-            print(f"\nLoaded save: {save_name}")
+            # Verify save data structure
+            required_keys = {'game_state', 'current_location', 'location_states', 'inventory_state'}
+            if not all(key in save_data for key in required_keys):
+                raise ValueError("Save file is missing required data")
+
+            # Restore game state
+            game_instance.game_state = save_data['game_state']
+            game_instance.current_location = save_data['current_location']
+            
+            # Restore location states
+            game_instance.location_manager.current_location = save_data['current_location']
+            game_instance.location_manager.restore_location_states(save_data['location_states'])
+            
+            # Restore inventory
+            game_instance.item_manager.restore_inventory_state(save_data['inventory_state'])
+            
+            self.logger.info(f"Game loaded successfully from {file_path}")
             return True
 
         except Exception as e:
             self.logger.error(f"Error loading game: {str(e)}")
-            print(f"\nError loading save: {str(e)}")
             return False
+
+    def list_saves(self) -> List[Dict[str, Any]]:
+        """List all available save files with metadata."""
+        saves = []
+        for save_file in self.save_dir.glob("*.json"):
+            try:
+                with open(save_file, 'r') as f:
+                    save_data = json.load(f)
+                    saves.append({
+                        'name': save_data['save_name'],
+                        'date': save_data['save_date'],
+                        'location': save_data['current_location'],
+                        'file_path': str(save_file)
+                    })
+            except Exception as e:
+                self.logger.warning(f"Error reading save file {save_file}: {e}")
+                continue
         
+        return sorted(saves, key=lambda x: x['date'], reverse=True)
+    
     def _verify_loaded_state(self, game_instance: 'SeattleNoir', save_data: SaveGameData) -> None:
         """
         Verify the integrity of loaded game state.

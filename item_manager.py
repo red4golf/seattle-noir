@@ -200,15 +200,17 @@ class ItemManager:
         return item in self.inventory
     
     def get_inventory_state(self) -> Dict[str, any]:
-        """Get the complete inventory state including removed items."""
+        """Get the complete inventory state."""
         return {
             "inventory": self.inventory.copy(),
-            "removed_items": list(self.removed_items),
-            "newspaper_pieces": self.newspaper_pieces
+            "newspaper_pieces": self.newspaper_pieces,
+            "discovered_combinations": list(self.discovered_combinations),
+            "removed_items": list(self.removed_items)
         }
     
     def restore_inventory_state(self, state: Dict[str, any]) -> None:
-        """Restore inventory state including removed items."""
+        """Restore inventory from saved state."""
         self.inventory = state.get("inventory", []).copy()
-        self.removed_items = set(state.get("removed_items", []))
         self.newspaper_pieces = state.get("newspaper_pieces", 0)
+        self.discovered_combinations = set(state.get("discovered_combinations", []))
+        self.removed_items = set(state.get("removed_items", []))

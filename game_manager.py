@@ -1,11 +1,11 @@
 from typing import Dict, List, Optional, Tuple
 import logging
 from location_manager import LocationManager
-from puzzle_solver import PuzzleSolver
 from item_manager import ItemManager
 from utils import clear_screen, print_wrapped, SaveLoadManager
 from datetime import datetime
 import config
+from puzzles.puzzle_manager import PuzzleManager
 
 def show_title_screen():
     """Display the game's title screen with complete title and cityscape."""
@@ -59,7 +59,7 @@ class SeattleNoir:
         
         # Initialize managers
         self.location_manager = LocationManager()
-        self.puzzle_solver = PuzzleSolver()
+        self.puzzle_manager = PuzzleManager()
         self.item_manager = ItemManager()
         self.save_load_manager = SaveLoadManager(config.SAVE_DIR)
         self.last_save_time = datetime.now()
@@ -231,6 +231,18 @@ class SeattleNoir:
                     return True
                 return (self.item_manager.combine_items(cmd_args[0], cmd_args[1], self.game_state), True)[1]
 
+            if command.startswith('solve'):
+                try:
+                    return self.puzzle_manager.handle_puzzle(
+                        self.current_location,
+                        self.item_manager.get_inventory(),
+                        self.game_state
+                    )
+                except Exception as e:
+                    logging.error(f"Error in puzzle: {e}")
+                    print("\nPuzzle system error. Your progress has been saved.")
+                    return True
+
             # Single argument commands
             command_handlers = {
                 "quit": lambda: False,
@@ -242,7 +254,6 @@ class SeattleNoir:
                 "examine": lambda: (self.item_manager.examine_item(cmd_args[0], self.location_manager.get_available_items(), self.game_state), True)[1],
                 "talk": lambda: (self.handle_talk_command(), True)[1],
                 "history": lambda: (self.location_manager.show_historical_note(self.current_location), True)[1],
-                "solve": lambda: (self.puzzle_solver.handle_puzzle(self.current_location, self.game_state), True)[1],
                 "use": lambda: (self.item_manager.use_item(cmd_args[0], self.current_location, self.game_state), True)[1]
             }
 

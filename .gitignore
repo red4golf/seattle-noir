@@ -1,4 +1,5 @@
 archive/
+dev_tests/
 saves/
 # Python bytecode
 __pycache__/
