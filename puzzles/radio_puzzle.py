@@ -1,21 +1,27 @@
 from typing import Dict, List, Set, Tuple
 import random
 from .base_puzzle import BasePuzzle
+from utils import print_text
+from input_validator import InputValidator
 
 class RadioPuzzle(BasePuzzle):
-    """Radio frequency puzzle implementation."""
+    """
+    Enhanced radio frequency puzzle implementation.
+    Players must tune to correct frequencies to intercept suspicious transmissions.
+    """
 
     def __init__(self):
+        # Initialize base puzzle features
         super().__init__()
         
-        # Frequency ranges for different bands
+        # Define frequency ranges for different radio bands
         self.RADIO_RANGES = {
             "emergency": (1400, 1500),
             "police": (1200, 1300),
             "civilian": (1000, 1100)
         }
         
-        # Messages that can be heard on each band
+        # Define possible messages for each band
         self.RADIO_MESSAGES = {
             "emergency": [
                 ("...urgent shipment tonight... dock 7... look for red star...",
@@ -37,32 +43,48 @@ class RadioPuzzle(BasePuzzle):
             ]
         }
         
-        # Initialize active frequencies for this session
+        # Puzzle state variables
         self.active_frequencies = self._generate_frequencies()
         self.found_frequencies: Set[str] = set()
+        
+        # Override base puzzle settings
+        self.max_attempts = 8  # More attempts for this puzzle due to its nature
 
     @property
     def requirements(self) -> List[str]:
+        """Required items for this puzzle."""
         return ["radio_manual"]
 
     def _generate_frequencies(self) -> Dict[str, Tuple[int, str]]:
-        """Generate random target frequencies within each range with messages."""
+        """
+        Generate random target frequencies within each range with messages.
+        Each band gets a random frequency and message.
+        """
         active = {}
-        for band, (min_freq, max_freq) in self.RADIO_RANGES.items():
-            frequency = random.randint(min_freq, max_freq)
-            message, _ = random.choice(self.RADIO_MESSAGES[band])
-            active[band] = (frequency, message)
-        return active
+        with self.error_handler("frequency generation"):
+            for band, (min_freq, max_freq) in self.RADIO_RANGES.items():
+                frequency = random.randint(min_freq, max_freq)
+                message, _ = random.choice(self.RADIO_MESSAGES[band])
+                active[band] = (frequency, message)
+            return active
+        
+    def _validate_frequency(self, frequency: str) -> bool:
+        """
+        Validate user input for frequency.
+        Ensures input is a number within valid ranges.
+        """
+        try:
+            freq = int(frequency)
+            min_freq = min(r[0] for r in self.RADIO_RANGES.values())
+            max_freq = max(r[1] for r in self.RADIO_RANGES.values())
+            return min_freq <= freq <= max_freq
+        except ValueError:
+            return False
 
     def get_signal_strength(self, frequency: int) -> Tuple[str, str, str]:
         """
         Calculate signal strength and return appropriate message.
-        
-        Args:
-            frequency: The frequency being tuned to
-            
-        Returns:
-            Tuple of (signal strength, message, band)
+        Returns tuple of (strength, message, band).
         """
         best_strength = "NONE"
         best_message = ""
@@ -84,97 +106,142 @@ class RadioPuzzle(BasePuzzle):
                 
         return best_strength, best_message, best_band
 
-    def solve(self, inventory: List[str], game_state: Dict) -> bool:
-        """Implement the radio frequency puzzle."""
-        try:
-            self.logger.info("Starting radio puzzle")
+    def _display_puzzle_introduction(self) -> None:
+        """
+        Display the puzzle introduction and instructions.
+        Provides context and guidance to the player.
+        """
+        intro_text = """
+        Objective: Locate the emergency frequency being used by the smugglers.
+        The radio manual indicates suspicious activity on emergency channels.
+
+        The radio manual lists several frequency ranges:
+        Emergency Services: 1400-1500 kHz  (Known smuggler activity)
+        Police Band: 1200-1300 kHz        (May contain useful intel)
+        Civilian Band: 1000-1100 kHz      (Dock worker communications)
+        """
+        print_text(intro_text)
+    
+    def _handle_strong_signal(self, band: str, message: str, game_state: Dict) -> bool:
+        """
+        Process a strong signal detection and update game state.
+        Returns True if puzzle should continue, False if complete.
+        """
+        print_text(f"\nClear transmission:")
+        print_text(message)
+        self.found_frequencies.add(band)
+        
+        # Check if found emergency frequency
+        if band == "emergency" and not game_state.get("solved_radio_puzzle", False):
+            print_text("\nThis is it! You've found the smugglers' frequency!")
+            game_state["solved_radio_puzzle"] = True
+        
+        # Check if found all frequencies
+        if len(self.found_frequencies) == len(self.RADIO_RANGES):
+            print_text("\nBy cross-referencing all the transmissions, you've uncovered")
+            print_text("a clear pattern of suspicious activity at the waterfront.")
+            game_state["understood_radio"] = True
+            return True
             
+        return False
+    
+    def solve(self, inventory: List[str], game_state: Dict) -> bool:
+        """
+        Main puzzle solving logic.
+        Implements the abstract method from BasePuzzle.
+        """
+        with self.error_handler("radio puzzle"):
             # Check if already solved
             if game_state.get("solved_radio_puzzle", False):
-                print("\nYou've already decoded the critical emergency transmission.")
-                print("The radio remains available for scanning other frequencies.")
+                print_text("\nYou've already decoded the critical emergency transmission.")
+                print_text("The radio remains available for scanning other frequencies.")
             
             # Reset frequencies for new attempt
             self.active_frequencies = self._generate_frequencies()
             
-            # Show initial description
-            print("\nObjective: Locate the emergency frequency being used by the smugglers.")
-            print("The radio manual indicates suspicious activity on emergency channels.")
+            # Display introduction
+            self._display_puzzle_introduction()
             
-            print("\nThe radio manual lists several frequency ranges:")
-            print("Emergency Services: 1400-1500 kHz  (Known smuggler activity)")
-            print("Police Band: 1200-1300 kHz        (May contain useful intel)")
-            print("Civilian Band: 1000-1100 kHz      (Dock worker communications)")
-            
-            attempts_left = 8
-            
-            while attempts_left > 0:
+            # Main puzzle loop
+            while self.attempts < self.max_attempts:
                 try:
-                    print(f"\nAttempts remaining: {attempts_left}")
+                    print_text(f"\nAttempts remaining: {self.max_attempts - self.attempts}")
                     if self.found_frequencies:
-                        print("Tuned bands:", ", ".join(self.found_frequencies))
+                        print_text("Tuned bands: " + ", ".join(self.found_frequencies))
                     
                     guess = input("\nEnter frequency to tune (or 'quit'): ").lower()
                     
                     if guess == "quit":
                         return False
                     
-                    if not guess.isdigit():
-                        print("Please enter a valid number.")
+                    # Validate input
+                    if not self._validate_frequency(guess):
+                        print_text("Please enter a valid frequency number.")
                         continue
                     
                     frequency = int(guess)
                     strength, message, band = self.get_signal_strength(frequency)
-                    attempts_left -= 1
                     
-                    print(f"\nSignal Strength: {strength}")
+                    # Only increment attempts for actual tuning attempts
+                    if not self.increment_attempts():
+                        break
+                    
+                    print_text(f"\nSignal Strength: {strength}")
                     
                     if strength == "STRONG":
-                        print(f"\nClear transmission:")
-                        print(message)
-                        self.found_frequencies.add(band)
-                        
-                        # Check if found emergency frequency
-                        if band == "emergency" and not game_state.get("solved_radio_puzzle", False):
-                            print("\nThis is it! You've found the smugglers' frequency!")
-                            game_state["solved_radio_puzzle"] = True
-                        
-                        # If found all frequencies, give bonus clue
-                        if len(self.found_frequencies) == len(self.RADIO_RANGES):
-                            print("\nBy cross-referencing all the transmissions, you've uncovered")
-                            print("a clear pattern of suspicious activity at the waterfront.")
-                            game_state["understood_radio"] = True
+                        if self._handle_strong_signal(band, message, game_state):
                             return True
                     else:
-                        print(message)
+                        print_text(message)
                     
                     # Give hint after several attempts
-                    if attempts_left == 3:
-                        print("\nHint: Try methodically scanning through each band's range.")
+                    if self.attempts == 3:
+                        print_text("\nHint: Try methodically scanning through each band's range.")
                     
                 except ValueError:
-                    print("Please enter a valid frequency number.")
-            
-            print("\nThe radio needs time to cool down. Try again later.")
-            return False
-            
-        except Exception as e:
-            self.logger.error(f"Error in radio puzzle: {e}")
-            print("There was a problem with the radio. Try again later.")
+                    print_text("Please enter a valid frequency number.")
+                except KeyboardInterrupt:
+                    print_text("\nRadio operation interrupted.")
+                    return False
+
+            print_text("\nThe radio needs time to cool down. Try again later.")
             return False
 
     def get_state(self) -> Dict:
-        """Get current puzzle state."""
-        return {
+        """
+        Get current puzzle state for saving.
+        Extends base state from BasePuzzle.
+        """
+        state = super().get_state()
+        state.update({
             "found_frequencies": list(self.found_frequencies),
             "active_frequencies": {
                 band: (freq, msg) 
                 for band, (freq, msg) in self.active_frequencies.items()
             }
-        }
+        })
+        return state
 
     def restore_state(self, state: Dict) -> None:
-        """Restore puzzle state."""
+        """
+        Restore puzzle state from saved game.
+        Extends base state restoration from BasePuzzle.
+        """
+        super().restore_state(state)
         self.found_frequencies = set(state.get("found_frequencies", []))
         if "active_frequencies" in state:
             self.active_frequencies = state["active_frequencies"]
+
+    def get_debug_info(self) -> Dict:
+        """
+        Get debug information about current puzzle state.
+        Useful for testing and debugging.
+        """
+        return {
+            "found_frequencies": list(self.found_frequencies),
+            "active_frequencies": {
+                band: freq for band, (freq, _) in self.active_frequencies.items()
+            },
+            "attempts": self.attempts,
+            "max_attempts": self.max_attempts
+        }

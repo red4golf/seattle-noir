@@ -12,91 +12,6 @@ from datetime import datetime
 from pathlib import Path
 import config
 
-def get_terminal_size() -> tuple[int, int]:
-    """Get the current terminal size with fallback values."""
-    try:
-        width, height = shutil.get_terminal_size()
-        width = max(config.MIN_TERMINAL_WIDTH, min(width, config.MAX_TERMINAL_WIDTH))
-        return width, height
-    except Exception:
-        return config.DEFAULT_TERMINAL_WIDTH, config.DEFAULT_TERMINAL_HEIGHT
-
-def wrap_text(text: str, width: Optional[int] = None, indent: int = 0) -> str:
-    """
-    Wrap text to fit the terminal width with proper indentation and formatting.
-    
-    Args:
-        text (str): Text to wrap
-        width (Optional[int]): Specific width to wrap to, defaults to terminal width
-        indent (int): Number of spaces to indent wrapped lines
-    """
-    if width is None:
-        width, _ = get_terminal_size()
-    
-    # Adjust width for indent
-    effective_width = width - indent
-    
-    # Normalize whitespace and split into paragraphs
-    paragraphs = [p.strip() for p in text.strip().split('\n\n')]
-    wrapped_paragraphs = []
-    
-    for paragraph in paragraphs:
-        # Normalize spaces and remove existing indentation
-        paragraph = ' '.join(paragraph.split())
-        
-        # Wrap the paragraph
-        wrapped = textwrap.fill(
-            paragraph,
-            width=effective_width,
-            expand_tabs=True,
-            replace_whitespace=True,
-            break_long_words=False,
-            break_on_hyphens=True,
-            initial_indent=' ' * indent,
-            subsequent_indent=' ' * indent
-        )
-        
-        wrapped_paragraphs.append(wrapped)
-    
-    # Join paragraphs with double newlines
-    return '\n\n'.join(wrapped_paragraphs)
-
-def print_wrapped(text: str, delay: Optional[float] = None, indent: int = 0) -> None:
-    """
-    Print text with proper wrapping and optional slow printing effect.
-    
-    Args:
-        text (str): Text to print
-        delay (Optional[float]): Delay between characters for slow printing
-        indent (int): Number of spaces to indent text
-    """
-    wrapped_text = wrap_text(text, indent=indent)
-    
-    if delay is not None:
-        print_slowly(wrapped_text, delay)
-    else:
-        print(wrapped_text)
-
-# Update the original print_slowly function to use wrapping
-def print_slowly(text: str, delay: float = config.TEXT_DELAY) -> None:
-    """Print text character by character with proper wrapping."""
-    wrapped_text = wrap_text(text)
-    
-    try:
-        for char in wrapped_text:
-            sys.stdout.write(char)
-            sys.stdout.flush()
-            time.sleep(delay)
-    except KeyboardInterrupt:
-        sys.stdout.write("\n")
-        sys.stdout.flush()
-        logger.info("Text display interrupted by user")
-        raise
-    except Exception as e:
-        logger.error(f"Error in print_slowly: {e}")
-        print(f"\nError displaying text: {e}")
-    finally:
-        print()
 
 # Configure root logger
 logging.basicConfig(
@@ -122,84 +37,131 @@ class SaveGameData:
             self.location_states = {}
 
 class DisplayManager:
-    """Handles all display-related functionality."""
+    """Handles all display-related functionality in a centralized way."""
     
     @staticmethod
-    def print_slowly(text: str, delay: float = 0.03) -> None:
+    def get_terminal_size() -> tuple[int, int]:
+        """Get current terminal size with fallback values."""
+        try:
+            width, height = shutil.get_terminal_size()
+            width = max(config.MIN_TERMINAL_WIDTH, 
+                       min(width, config.MAX_TERMINAL_WIDTH))
+            return width, height
+        except Exception:
+            return config.DEFAULT_TERMINAL_WIDTH, config.DEFAULT_TERMINAL_HEIGHT
+    
+    @staticmethod
+    def wrap_text(text: str, width: Optional[int] = None, indent: int = 0) -> str:
+        """Wrap text to fit terminal width with proper indentation."""
+        if width is None:
+            width, _ = DisplayManager.get_terminal_size()
+        
+        # Adjust width for indent
+        effective_width = width - indent
+        
+        # Split into paragraphs
+        paragraphs = [p.strip() for p in text.strip().split('\n\n')]
+        wrapped_paragraphs = []
+        
+        for paragraph in paragraphs:
+            # Normalize spaces
+            paragraph = ' '.join(paragraph.split())
+            
+            # Wrap the paragraph
+            wrapped = textwrap.fill(
+                paragraph,
+                width=effective_width,
+                expand_tabs=True,
+                replace_whitespace=True,
+                break_long_words=False,
+                break_on_hyphens=True,
+                initial_indent=' ' * indent,
+                subsequent_indent=' ' * indent
+            )
+            
+            wrapped_paragraphs.append(wrapped)
+        
+        return '\n\n'.join(wrapped_paragraphs)
+    
+    @staticmethod
+    def print_text(text: str, delay: Optional[float] = None, 
+                  indent: int = 0, wrap: bool = True) -> None:
         """
-        Print text character by character with proper error handling.
+        Print text with optional wrapping and slow printing effect.
         
         Args:
-            text (str): The text to print
-            delay (float): Delay between characters in seconds
-            
-        Raises:
-            KeyboardInterrupt: If user interrupts the display
+            text: Text to display
+            delay: Delay between characters for slow printing
+            indent: Number of spaces to indent text
+            wrap: Whether to wrap text to terminal width
         """
-        if not isinstance(text, str):
-            raise ValueError("Text must be a string")
-            
         try:
-            for char in text:
-                sys.stdout.write(char)
-                sys.stdout.flush()
-                time.sleep(delay)
+            # Prepare the text
+            display_text = DisplayManager.wrap_text(text, indent=indent) if wrap else text
+            
+            # Print with or without delay
+            if delay:
+                for char in display_text:
+                    sys.stdout.write(char)
+                    sys.stdout.flush()
+                    time.sleep(delay)
+                print()  # Add final newline
+            else:
+                print(display_text)
+                
         except KeyboardInterrupt:
-            sys.stdout.write("\n")
-            sys.stdout.flush()
-            logger.info("Text display interrupted by user")
-            raise
+            print("\nDisplay interrupted.")
         except Exception as e:
-            logger.error(f"Error in print_slowly: {e}")
-            print(f"\nError displaying text: {e}")
-        finally:
-            print()
-
+            logging.error(f"Error displaying text: {e}")
+            print("\nError displaying text.")
+    
     @staticmethod
     def clear_screen() -> None:
-        """
-        Clear the terminal screen with error handling.
-        """
+        """Clear the terminal screen."""
         try:
             # Check if running in IDLE
             if 'idlelib.run' in sys.modules:
                 print("\n" * 100)
                 return
-                
+            
             # Use appropriate clear command based on OS
             os.system('cls' if os.name == 'nt' else 'clear')
         except Exception as e:
-            logger.warning(f"Could not clear screen: {e}")
-            print("\n" * 100)
-
+            logging.error(f"Error clearing screen: {e}")
+            print("\n" * 100)  # Fallback
+    
     @staticmethod
-    def format_location_description(description: str, exits: List[str], items: List[str]) -> str:
-        """
-        Format a location description with exits and items.
-        
-        Args:
-            description (str): Base location description
-            exits (List[str]): Available exits
-            items (List[str]): Items in the location
+    def format_location_description(description: str, 
+                                  exits: list[str], 
+                                  items: list[str]) -> str:
+        """Format a location description with exits and items."""
+        try:
+            if not description:
+                raise ValueError("Invalid description")
             
-        Returns:
-            str: Formatted description
-        
-        Raises:
-            ValueError: If description is empty or invalid
-        """
-        if not description or not isinstance(description, str):
-            raise ValueError("Invalid description")
+            formatted = description.strip()
             
-        formatted = description.strip()
-        
-        if exits:
-            formatted += f"\n\nExits: {', '.join(exits)}"
+            if exits:
+                formatted += f"\n\nExits: {', '.join(exits)}"
             
-        if items:
-            formatted += f"\n\nYou can see: {', '.join(items)}"
+            if items:
+                formatted += f"\n\nYou can see: {', '.join(items)}"
             
-        return formatted
+            return formatted
+            
+        except Exception as e:
+            logging.error(f"Error formatting location description: {e}")
+            return description  # Return original description on error
+
+# Convenience functions that use DisplayManager
+def clear_screen() -> None:
+    """Clear the terminal screen."""
+    DisplayManager.clear_screen()
+
+def print_text(text: str, delay: Optional[float] = None, 
+              indent: int = 0, wrap: bool = True) -> None:
+    """Print text using DisplayManager."""
+    DisplayManager.print_text(text, delay, indent, wrap)
 
 class InputValidator:
     """Handles input validation for game commands."""

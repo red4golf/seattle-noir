@@ -2,7 +2,7 @@ from typing import Dict, List, Optional, Tuple
 import logging
 from location_manager import LocationManager
 from item_manager import ItemManager
-from utils import clear_screen, print_wrapped, SaveLoadManager
+from utils import clear_screen, SaveLoadManager, print_text
 from datetime import datetime
 import config
 from puzzles.puzzle_manager import PuzzleManager
@@ -121,7 +121,7 @@ class SeattleNoir:
     
         Type 'help' at any time to see available commands.
         """
-        print_wrapped(intro_text, delay=0.03)
+        print_text(intro_text, delay=0.03)
         input("\nPress Enter to begin your investigation...")
 
 
@@ -340,7 +340,7 @@ class SeattleNoir:
         back to the Great Seattle Fire of 1889, often featured in criminal activities 
         of the era.
         """
-        print_wrapped(ending_text)
+        print_text(ending_text)
 
     def play(self) -> None:
         """Main game loop."""
