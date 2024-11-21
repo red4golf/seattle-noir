@@ -6,6 +6,7 @@ from utils import clear_screen, SaveLoadManager, print_text
 from datetime import datetime
 import config
 from puzzles.puzzle_manager import PuzzleManager
+from natural_commands import NaturalCommandHandler
 
 def show_title_screen():
     """Display the game's title screen with complete title and cityscape."""
@@ -56,6 +57,7 @@ class SeattleNoir:
     def __init__(self):
         """Initialize the game state and managers."""
         self.game_state = config.INITIAL_GAME_STATE.copy()
+        self.command_handler = NaturalCommandHandler()
         
         # Initialize managers
         self.location_manager = LocationManager()
@@ -212,8 +214,22 @@ class SeattleNoir:
                 print("Please enter a command. Type 'help' for options.")
                 return True
 
+            # Get base command and arguments
             cmd_type = parts[0].lower()
             cmd_args = parts[1:] if len(parts) > 1 else [""]
+
+            # Handle directional shortcuts (new!)
+            direction_shortcuts = {
+                'n': 'north', 's': 'south', 'e': 'east', 'w': 'west',
+                'u': 'up', 'd': 'down', 'nw': 'northwest', 'ne': 'northeast',
+                'sw': 'southwest', 'se': 'southeast'
+            }
+            if cmd_type in direction_shortcuts:
+                return self.handle_movement_command(direction_shortcuts[cmd_type])
+
+            # Handle natural movement (new!)
+            if cmd_type in direction_shortcuts.values():
+                return self.handle_movement_command(cmd_type)
 
             # Handle save/load commands first
             if cmd_type in ('save', 'load', 'saves'):
@@ -231,6 +247,7 @@ class SeattleNoir:
                     return True
                 return (self.item_manager.combine_items(cmd_args[0], cmd_args[1], self.game_state), True)[1]
 
+            # Handle puzzle solving
             if command.startswith('solve'):
                 try:
                     return self.puzzle_manager.handle_puzzle(
@@ -243,7 +260,30 @@ class SeattleNoir:
                     print("\nPuzzle system error. Your progress has been saved.")
                     return True
 
-            # Single argument commands
+            # Handle item name variations (new!)
+            if cmd_type in ['take', 'get', 'grab', 'pickup']:
+                item = ' '.join(cmd_args).replace(' ', '_')
+                return (self.handle_take_command(item), True)[1]
+
+            # Single argument commands with their variations (new!)
+            command_variations = {
+                'quit': ['quit', 'exit', 'bye'],
+                'help': ['help', 'h', '?'],
+                'look': ['look', 'l', 'examine'],
+                'inventory': ['inventory', 'inv', 'i'],
+                'take': ['take', 'get', 'grab', 'pickup'],
+                'go': ['go', 'move', 'walk'],
+                'examine': ['examine', 'x', 'check', 'read'],
+                'talk': ['talk', 'speak', 'chat'],
+                'history': ['history', 'hist'],
+                'use': ['use', 'utilize']
+            }
+
+            # Find the base command from variations
+            base_cmd = next((base for base, variations in command_variations.items() 
+                            if cmd_type in variations), cmd_type)
+
+            # Use your existing command handlers with the base command
             command_handlers = {
                 "quit": lambda: False,
                 "help": lambda: (self.show_help(), True)[1],
@@ -257,11 +297,11 @@ class SeattleNoir:
                 "use": lambda: (self.item_manager.use_item(cmd_args[0], self.current_location, self.game_state), True)[1]
             }
 
-            if cmd_type not in command_handlers:
+            if base_cmd not in command_handlers:
                 print("Invalid command. Type 'help' for a list of commands.")
                 return True
 
-            result = command_handlers[cmd_type]()
+            result = command_handlers[base_cmd]()
             self.check_auto_save()
             return result
 
