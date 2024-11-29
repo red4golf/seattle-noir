@@ -4,7 +4,6 @@ from contextlib import contextmanager
 from utils import print_text
 from .cipher_puzzle import CipherPuzzle
 from .radio_puzzle import RadioPuzzle
-from .car_puzzle import CarPuzzle
 from .morse_puzzle import MorsePuzzle
 
 class PuzzleManager:
@@ -18,7 +17,6 @@ class PuzzleManager:
         self.puzzles = {
             "cipher_puzzle": CipherPuzzle(),
             "radio_puzzle": RadioPuzzle(),
-            "car_puzzle": CarPuzzle(),
             "morse_puzzle": MorsePuzzle()
         }
 
@@ -26,7 +24,6 @@ class PuzzleManager:
         self.puzzle_map = {
             "evidence_room": "cipher_puzzle",
             "warehouse_office": "radio_puzzle",
-            "smith_tower": "car_puzzle",
             "underground_tunnels": "morse_puzzle"
         }
         
@@ -130,7 +127,6 @@ class PuzzleManager:
         completion_handlers = {
             "cipher_puzzle": lambda: game_state.update({"cipher_mastery": True}),
             "radio_puzzle": lambda: game_state.update({"radio_expert": True}),
-            "car_puzzle": lambda: game_state.update({"surveillance_skill": True}),
             "morse_puzzle": lambda: game_state.update({"morse_proficiency": True})
         }
         

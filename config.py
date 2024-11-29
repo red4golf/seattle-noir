@@ -88,10 +88,6 @@ PUZZLE_REQUIREMENTS = {
         "radio_puzzle": ["radio_manual"],
         "description": "The radio equipment looks operational. With the right frequency..."
     },
-    "smith_tower": {
-        "car_tracking": ["binoculars"],
-        "description": "From this height, you could track vehicle movements in the streets below."
-    },
     "evidence_room": {
         "cipher_puzzle": ["cipher_wheel"],
         "description": "The cipher wheel could help decode any encrypted messages."

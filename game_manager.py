@@ -250,6 +250,13 @@ class SeattleNoir:
             # Handle puzzle solving
             if command.startswith('solve'):
                 try:
+
+                    # First check if there's a puzzle available
+                    available_puzzles = self.puzzle_manager.get_available_puzzles(self.current_location)
+                    if not available_puzzles:
+                        print("\nThere is no puzzle to solve here.")
+                        return True  # Return True to continue the game    
+
                     return self.puzzle_manager.handle_puzzle(
                         self.current_location,
                         self.item_manager.get_inventory(),

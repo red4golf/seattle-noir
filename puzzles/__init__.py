@@ -5,7 +5,6 @@ Provides access to puzzle classes and manager.
 
 from .base_puzzle import BasePuzzle
 from .cipher_puzzle import CipherPuzzle
-from .car_puzzle import CarPuzzle
 from .morse_puzzle import MorsePuzzle
 from .radio_puzzle import RadioPuzzle
 from .puzzle_manager import PuzzleManager
@@ -13,7 +12,6 @@ from .puzzle_manager import PuzzleManager
 __all__ = [
     'BasePuzzle',
     'CipherPuzzle',
-    'CarPuzzle',
     'MorsePuzzle',
     'RadioPuzzle',
     'PuzzleManager'
